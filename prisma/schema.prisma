@@ -8,6 +8,95 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model User {
+  id        String            @id @default(cuid())
+  authId    String            @unique
+  name      String
+  email     String            @unique
+  role      Role              @default(USER)
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  sessions  PracticeSession[]
+
+  @@map("users")
+}
+
+model QuestionPackage {
+  id        String         @id @default(cuid())
+  name      String
+  section   Section
+  createdAt DateTime       @default(now())
+  isActive  Boolean        @default(true)
+  questions BankQuestion[]
+
+  @@unique([name, section])
+  @@map("question_packages")
+}
+
+model BankQuestion {
+  id               String            @id @default(cuid())
+  section          Section
+  packageId        String?
+  sourceType       QuestionSource
+  passage          String?
+  text             String
+  optionA          String
+  optionB          String
+  optionC          String
+  optionD          String
+  correctAnswer    String
+  explanation      String
+  createdAt        DateTime          @default(now())
+  package          QuestionPackage?  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  sessionQuestions SessionQuestion[]
+
+  @@map("bank_questions")
+}
+
+model PracticeSession {
+  id               String            @id @default(cuid())
+  userId           String
+  section          Section
+  isRandom         Boolean           @default(false)
+  totalQ           Int
+  correctQ         Int               @default(0)
+  score            Int?
+  status           String            @default("ongoing")
+  startedAt        DateTime          @default(now())
+  completedAt      DateTime?
+  user             User              @relation(fields: [userId], references: [id])
+  answers          SessionAnswer[]
+  sessionQuestions SessionQuestion[]
+
+  @@map("practice_sessions")
+}
+
+model SessionQuestion {
+  id         String          @id @default(cuid())
+  sessionId  String
+  questionId String
+  order      Int             @default(0)
+  answer     SessionAnswer?
+  question   BankQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  session    PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId])
+  @@map("session_questions")
+}
+
+model SessionAnswer {
+  id                String          @id @default(cuid())
+  sessionId         String
+  sessionQuestionId String          @unique
+  userAnswer        String
+  isCorrect         Boolean
+  answeredAt        DateTime        @default(now())
+  session           PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionQuestion   SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
+
+  @@map("session_answers")
+}
+
 enum Role {
   ADMIN
   USER
@@ -23,106 +112,4 @@ enum Section {
 enum QuestionSource {
   ORIGINAL
   GENERATED
-}
-
-// ── Users ──────────────────────────────────────────
-model User {
-  id        String   @id @default(cuid())
-  authId    String   @unique // Supabase Auth UUID
-  name      String
-  email     String   @unique
-  role      Role     @default(USER)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  sessions PracticeSession[]
-
-  @@map("users")
-}
-
-// ── Question Bank ──────────────────────────────────
-
-// Paket soal. Misalnya: "Paket A", "Paket B" untuk section "READING".
-model QuestionPackage {
-  id        String   @id @default(cuid())
-  name      String   // A, B, C... Z, AA, AB...
-  section   Section
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  questions BankQuestion[]
-
-  @@unique([name, section])
-  @@map("question_packages")
-}
-
-model BankQuestion {
-  id            String           @id @default(cuid())
-  section       Section
-  packageId     String?          // Bisa null kalau Original dan tidak dimasukkan paket? Atau selalu di paket. Asumsikan Generated ada paketnya.
-  package       QuestionPackage? @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  sourceType    QuestionSource
-  
-  passage       String?          @db.Text
-  text          String           @db.Text
-  optionA       String
-  optionB       String
-  optionC       String
-  optionD       String
-  correctAnswer String           // "A" | "B" | "C" | "D"
-  explanation   String           @db.Text
-  createdAt     DateTime         @default(now())
-
-  sessionQuestions SessionQuestion[]
-
-  @@map("bank_questions")
-}
-
-// ── Practice Sessions ───────────────────────────────
-model PracticeSession {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  section     Section
-  isRandom    Boolean   @default(false)
-  totalQ      Int
-  correctQ    Int       @default(0)
-  score       Int?      // persentase, null = belum selesai
-  status      String    @default("ongoing") // ongoing | completed
-  startedAt   DateTime  @default(now())
-  completedAt DateTime?
-
-  sessionQuestions SessionQuestion[]
-  answers          SessionAnswer[]
-
-  @@map("practice_sessions")
-}
-
-// Menghubungkan PracticeSession dengan BankQuestion
-model SessionQuestion {
-  id          String          @id @default(cuid())
-  sessionId   String
-  session     PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  questionId  String
-  question    BankQuestion    @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  order       Int             @default(0)
-
-  answer      SessionAnswer?
-
-  @@unique([sessionId, questionId])
-  @@map("session_questions")
-}
-
-// ── Session Answers ─────────────────────────────────
-model SessionAnswer {
-  id                String          @id @default(cuid())
-  sessionId         String
-  session           PracticeSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sessionQuestionId String          @unique
-  sessionQuestion   SessionQuestion @relation(fields: [sessionQuestionId], references: [id], onDelete: Cascade)
-  userAnswer        String          // "A" | "B" | "C" | "D"
-  isCorrect         Boolean
-  answeredAt        DateTime        @default(now())
-
-  @@map("session_answers")
 }

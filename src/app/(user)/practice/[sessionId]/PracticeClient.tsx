@@ -51,52 +51,66 @@ export default function PracticeClient({ session }: { session: Session }) {
       return
     }
 
-    const handleMouseUp = async () => {
-      const selection = window.getSelection()
-      if (!selection || selection.isCollapsed) return
+    let lastText = ''
 
-      const text = selection.toString().trim()
-      if (text.length === 0 || text.length > 500) return // Limit length for translation
+    const handlePointerUp = () => {
+      setTimeout(async () => {
+        const selection = window.getSelection()
+        if (!selection || selection.isCollapsed) return
 
-      const range = selection.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
+        const text = selection.toString().trim()
+        if (text.length === 0 || text.length > 500) return
+        if (text === lastText) return
+        lastText = text
 
-      setPopup({
-        top: Math.min(rect.bottom + 10, window.innerHeight - 150),
-        left: Math.min(Math.max(10, rect.left), window.innerWidth - 320),
-        text,
-        translation: '',
-        loading: true
-      })
+        const range = selection.getRangeAt(0)
+        const rect = range.getBoundingClientRect()
 
-      try {
-        const res = await fetch('/api/user/translate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
+        setPopup({
+          top: Math.min(rect.bottom + 10, window.innerHeight - 150),
+          left: Math.min(Math.max(10, rect.left), window.innerWidth - 320),
+          text,
+          translation: '',
+          loading: true
         })
-        const data = await res.json()
-        if (data.success) {
-          setPopup(prev => prev ? { ...prev, translation: data.translated, loading: false } : null)
-        } else {
-          setPopup(prev => prev ? { ...prev, translation: 'Error: ' + data.error, loading: false } : null)
+
+        try {
+          const res = await fetch('/api/user/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
+          })
+          const data = await res.json()
+          if (data.success) {
+            setPopup(prev => prev && prev.text === text ? { ...prev, translation: data.translated, loading: false } : prev)
+          } else {
+            setPopup(prev => prev && prev.text === text ? { ...prev, translation: 'Error: ' + data.error, loading: false } : prev)
+          }
+        } catch (err) {
+          setPopup(prev => prev && prev.text === text ? { ...prev, translation: 'Gagal terhubung', loading: false } : prev)
         }
-      } catch (err) {
-        setPopup(prev => prev ? { ...prev, translation: 'Gagal terhubung', loading: false } : null)
-      }
+      }, 150)
     }
 
-    const handleMouseDown = (e: MouseEvent) => {
+    const handlePointerDown = (e: Event) => {
       const popupEl = document.getElementById('translate-popup')
       if (popupEl && popupEl.contains(e.target as Node)) return
-      if (window.getSelection()?.isCollapsed) setPopup(null)
+      
+      const selection = window.getSelection()
+      if (selection) selection.removeAllRanges()
+      setPopup(null)
+      lastText = ''
     }
 
-    document.addEventListener('mouseup', handleMouseUp)
-    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('mouseup', handlePointerUp)
+    document.addEventListener('touchend', handlePointerUp)
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('mouseup', handlePointerUp)
+      document.removeEventListener('touchend', handlePointerUp)
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
     }
   }, [translateMode])
 
