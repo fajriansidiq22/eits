@@ -1,0 +1,107 @@
+import { prisma } from '@/lib/prisma'
+import { requireAdmin } from '@/lib/auth'
+import { generateQuestions } from '@/lib/gemini'
+import { NextRequest } from 'next/server'
+import { z } from 'zod'
+
+const schema = z.object({
+  section: z.enum(['READING', 'GRAMMAR']),
+})
+
+// Helper to convert index to A, B, C... Z, AA, AB...
+function getPackageName(index: number): string {
+  let name = ''
+  let num = index
+  while (num >= 0) {
+    name = String.fromCharCode(65 + (num % 26)) + name
+    num = Math.floor(num / 26) - 1
+  }
+  return name
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    await requireAdmin()
+    const body = await req.json()
+    const { section } = schema.parse(body)
+
+    // Count existing packages for this section to determine next name
+    const count = await prisma.questionPackage.count({
+      where: { section }
+    })
+    const packageName = getPackageName(count)
+
+    // Fetch ORIGINAL questions to feed as examples
+    const originalQuestions = await prisma.bankQuestion.findMany({
+      where: { section, sourceType: 'ORIGINAL' },
+      take: 8,
+    })
+
+    if (originalQuestions.length === 0) {
+      return Response.json(
+        { error: `Belum ada Soal Asli untuk section ${section}. Upload soal asli terlebih dahulu sebagai referensi AI.` },
+        { status: 400 }
+      )
+    }
+
+    const passage = section === 'READING'
+      ? originalQuestions.find(q => q.passage)?.passage ?? undefined
+      : undefined
+
+    const trainingJson = JSON.stringify(
+      originalQuestions.map(e => ({
+        text: e.text,
+        option_a: e.optionA,
+        option_b: e.optionB,
+        option_c: e.optionC,
+        option_d: e.optionD,
+        answer: e.correctAnswer,
+        explanation: e.explanation,
+      })),
+      null, 2
+    )
+
+    // Call Gemini to generate 30 questions
+    const generated = await generateQuestions({
+      section: section.toLowerCase() as 'reading' | 'grammar',
+      count: 30, // 30 questions per package
+      trainingExamples: trainingJson,
+      passage,
+    })
+
+    if (!generated || generated.length === 0) {
+      return Response.json({ error: 'AI gagal generate soal. Coba lagi.' }, { status: 500 })
+    }
+
+    // Save package and questions
+    const pkg = await prisma.questionPackage.create({
+      data: {
+        name: packageName,
+        section,
+        questions: {
+          create: generated.map(q => ({
+            section,
+            sourceType: 'GENERATED',
+            passage: q.passage ?? null,
+            text: q.text,
+            optionA: q.option_a,
+            optionB: q.option_b,
+            optionC: q.option_c,
+            optionD: q.option_d,
+            correctAnswer: q.answer,
+            explanation: q.explanation,
+          })),
+        },
+      },
+    })
+
+    return Response.json({ packageId: pkg.id }, { status: 201 })
+  } catch (err) {
+    console.error('Admin generate error:', err)
+    if (err instanceof z.ZodError) {
+      return Response.json({ error: 'Parameter tidak valid' }, { status: 400 })
+    }
+    const msg = err instanceof Error ? err.message : 'Terjadi kesalahan internal. Coba lagi.'
+    return Response.json({ error: msg }, { status: 500 })
+  }
+}
