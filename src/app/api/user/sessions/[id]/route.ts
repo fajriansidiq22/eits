@@ -12,7 +12,7 @@ export async function GET(
     const session = await prisma.practiceSession.findFirst({
       where: { id, userId: auth.dbUser.id },
       include: {
-        questions: {
+        sessionQuestions: {
           orderBy: { order: 'asc' },
           include: { answer: true },
         },
