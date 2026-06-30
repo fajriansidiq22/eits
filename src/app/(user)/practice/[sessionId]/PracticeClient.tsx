@@ -51,15 +51,24 @@ export default function PracticeClient({ session }: { session: Session }) {
       return
     }
 
+    let timeoutId: NodeJS.Timeout
     let lastText = ''
 
-    const handlePointerUp = () => {
-      setTimeout(async () => {
-        const selection = window.getSelection()
-        if (!selection || selection.isCollapsed) return
+    const handleSelectionChange = () => {
+      clearTimeout(timeoutId)
+      
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed) {
+        setPopup(null)
+        lastText = ''
+        return
+      }
 
-        const text = selection.toString().trim()
-        if (text.length === 0 || text.length > 500) return
+      const text = selection.toString().trim()
+      if (text.length === 0 || text.length > 500) return
+
+      // Debounce: wait until user stops dragging for 400ms
+      timeoutId = setTimeout(async () => {
         if (text === lastText) return
         lastText = text
 
@@ -89,7 +98,7 @@ export default function PracticeClient({ session }: { session: Session }) {
         } catch (err) {
           setPopup(prev => prev && prev.text === text ? { ...prev, translation: 'Gagal terhubung', loading: false } : prev)
         }
-      }, 150)
+      }, 400)
     }
 
     const handlePointerDown = (e: Event) => {
@@ -102,13 +111,12 @@ export default function PracticeClient({ session }: { session: Session }) {
       lastText = ''
     }
 
-    document.addEventListener('mouseup', handlePointerUp)
-    document.addEventListener('touchend', handlePointerUp)
+    document.addEventListener('selectionchange', handleSelectionChange)
     document.addEventListener('mousedown', handlePointerDown)
     document.addEventListener('touchstart', handlePointerDown)
     return () => {
-      document.removeEventListener('mouseup', handlePointerUp)
-      document.removeEventListener('touchend', handlePointerUp)
+      clearTimeout(timeoutId)
+      document.removeEventListener('selectionchange', handleSelectionChange)
       document.removeEventListener('mousedown', handlePointerDown)
       document.removeEventListener('touchstart', handlePointerDown)
     }
