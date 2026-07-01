@@ -14,6 +14,7 @@ import {
   User,
   Menu
 } from 'lucide-react'
+import { useIdleTimeout } from '@/hooks/useIdleTimeout'
 
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,6 +43,12 @@ export default function AdminSidebar({ adminName }: { adminName: string }) {
     router.push('/login')
     router.refresh()
   }
+
+  // Auto logout after 30 minutes of inactivity
+  useIdleTimeout(() => {
+    alert('Sesi admin Anda telah berakhir karena tidak ada aktivitas (30 menit). Silakan login kembali.')
+    handleLogout()
+  }, 30)
 
   return (
     <>

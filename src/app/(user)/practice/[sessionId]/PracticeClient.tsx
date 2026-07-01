@@ -173,6 +173,18 @@ export default function PracticeClient({ session }: { session: Session }) {
     else setSubmitting(false)
   }
 
+  async function handleExit() {
+    const confirm = window.confirm('Apakah Anda yakin ingin keluar?\n\nSesi latihan ini akan dibatalkan dan tidak akan disimpan di riwayat Anda.')
+    if (confirm) {
+      try {
+        await fetch(`/api/user/sessions/${session.id}`, { method: 'DELETE' })
+      } catch (err) {
+        console.error(err)
+      }
+      router.push('/dashboard')
+    }
+  }
+
   const answeredForCurrent = answers[question.id]
 
   // Shared options renderer
@@ -265,7 +277,7 @@ export default function PracticeClient({ session }: { session: Session }) {
     <div className="quiz-shell">
       {/* Header */}
       <div className="quiz-header">
-        <button onClick={() => router.push('/dashboard')} className="btn btn-ghost btn-sm" style={{ padding: '6px 12px' }}>
+        <button onClick={handleExit} className="btn btn-ghost btn-sm" style={{ padding: '6px 12px' }} title="Keluar & Batal">
           <X size={16} />
         </button>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
