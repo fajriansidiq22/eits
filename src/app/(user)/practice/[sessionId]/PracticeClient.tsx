@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { X, ChevronLeft, ChevronRight, Check, Glasses, Loader2 } from 'lucide-react'
 
@@ -44,6 +44,39 @@ export default function PracticeClient({ session }: { session: Session }) {
   
   const [translateMode, setTranslateMode] = useState(false)
   const [popup, setPopup] = useState<{ top: number, left: number, text: string, translation: string, loading: boolean } | null>(null)
+  const isRoutingAway = useRef(false)
+
+  // Intercept browser back button & tab close
+  useEffect(() => {
+    window.history.pushState(null, '', window.location.href)
+    
+    const handlePopState = () => {
+      if (isRoutingAway.current) return
+      
+      const confirmExit = window.confirm('Apakah Anda yakin ingin keluar?\n\nSesi latihan ini akan dibatalkan dan tidak akan disimpan di riwayat Anda.')
+      if (confirmExit) {
+        isRoutingAway.current = true
+        fetch(`/api/user/sessions/${session.id}`, { method: 'DELETE' }).catch(console.error)
+        window.history.back()
+      } else {
+        window.history.pushState(null, '', window.location.href)
+      }
+    }
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRoutingAway.current) return
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [session.id])
 
   useEffect(() => {
     if (!translateMode) {
@@ -169,13 +202,18 @@ export default function PracticeClient({ session }: { session: Session }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ answers: answerList }),
     })
-    if (res.ok) router.push(`/practice/${session.id}/results`)
-    else setSubmitting(false)
+    if (res.ok) {
+      isRoutingAway.current = true
+      router.push(`/practice/${session.id}/results`)
+    } else {
+      setSubmitting(false)
+    }
   }
 
   async function handleExit() {
     const confirm = window.confirm('Apakah Anda yakin ingin keluar?\n\nSesi latihan ini akan dibatalkan dan tidak akan disimpan di riwayat Anda.')
     if (confirm) {
+      isRoutingAway.current = true
       try {
         await fetch(`/api/user/sessions/${session.id}`, { method: 'DELETE' })
       } catch (err) {
