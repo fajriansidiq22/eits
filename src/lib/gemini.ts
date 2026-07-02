@@ -75,7 +75,7 @@ function buildPrompt(config: GenerateConfig): string {
 
   const passageInstruction =
     config.section === 'reading'
-      ? `Buat SATU passage baru (150-250 kata) tentang topik akademis atau sains populer, lalu buat ${config.count} soal berdasarkan passage tersebut. Setiap soal harus memiliki field "passage" yang berisi teks passage tersebut.`
+      ? `Buat SATU passage baru (150-300 kata) tentang topik akademis atau sains populer. Teks passage HARUS terdiri dari beberapa paragraf (minimal 3 paragraf), pisahkan setiap paragraf dengan karakter \\n\\n. Lalu buat ${config.count} soal berdasarkan passage tersebut. Setiap soal harus memiliki field "passage" yang berisi teks passage tersebut secara utuh.`
       : `Buat ${config.count} soal grammar/struktur bahasa Inggris yang bervariasi (tenses, prepositions, articles, subject-verb agreement, conjunctions, dll). Tidak perlu passage.`
 
   return `
@@ -101,7 +101,7 @@ OUTPUT FORMAT:
 Kembalikan HANYA JSON array, tanpa markdown, tanpa komentar:
 [
   {
-    ${config.section === 'reading' ? '"passage": "teks passage di sini (sama untuk semua soal dalam 1 set)",' : ''}
+    ${config.section === 'reading' ? '"passage": "teks passage lengkap di sini (wajib ada \\n\\n untuk paragraf baru)",' : ''}
     "text": "pertanyaan di sini",
     "option_a": "opsi A",
     "option_b": "opsi B",
