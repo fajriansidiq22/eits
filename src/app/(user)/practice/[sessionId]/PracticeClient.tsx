@@ -355,7 +355,7 @@ export default function PracticeClient({ session }: { session: Session }) {
                 <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--secondary)', marginBottom: 'var(--sp-3)' }}>
                   📖 Passage
                 </div>
-                <p style={{ lineHeight: 1.85, fontSize: '0.9375rem', color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                <p style={{ lineHeight: 1.85, fontSize: '0.9375rem', color: 'var(--text-primary)', margin: 0, whiteSpace: 'pre-wrap', textAlign: 'justify' }}>
                   {question.passage}
                 </p>
               </div>

@@ -26,11 +26,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { section, model: aiModel } = schema.parse(body)
 
-    // Count existing packages for this section to determine next name
-    const count = await prisma.questionPackage.count({
-      where: { section }
+    // Get all existing packages for this section to determine the next available name
+    // This prevents Unique Constraint errors if a previous package was deleted
+    const existingPackages = await prisma.questionPackage.findMany({
+      where: { section },
+      select: { name: true }
     })
-    const packageName = getPackageName(count)
+    const existingNames = new Set(existingPackages.map(p => p.name))
+    
+    let index = 0
+    let packageName = getPackageName(index)
+    while (existingNames.has(packageName)) {
+      index++
+      packageName = getPackageName(index)
+    }
 
     // Fetch ORIGINAL questions to feed as examples
     const originalQuestions = await prisma.bankQuestion.findMany({
