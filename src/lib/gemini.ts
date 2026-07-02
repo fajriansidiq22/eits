@@ -1,20 +1,14 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { MODELS_TO_TRY } from './gemini-constants'
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
-
-const MODELS_TO_TRY = [
-  'gemini-2.5-flash',
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash',
-  'gemini-3-flash',
-  'gemini-2.5-flash-lite'
-]
 
 export interface GenerateConfig {
   section: 'reading' | 'grammar'
   count: number
   trainingExamples: string // JSON string dari training examples
   passage?: string         // hanya untuk reading
+  modelName?: string       // specific model or 'auto'
 }
 
 export interface GeneratedQuestionRaw {
@@ -36,7 +30,11 @@ export async function generateQuestions(
   let raw = ''
   let lastError: any = null
 
-  for (const modelName of MODELS_TO_TRY) {
+  const modelsToTry = config.modelName && config.modelName !== 'auto' 
+    ? [config.modelName] 
+    : MODELS_TO_TRY
+
+  for (const modelName of modelsToTry) {
     try {
       console.log(`[Gemini] Mencoba model: ${modelName}`)
       const model = genAI.getGenerativeModel({
@@ -187,7 +185,7 @@ export interface BulkExplanationContext {
   correctAnswer: string
 }
 
-export async function generateBulkExplanations(questions: BulkExplanationContext[]): Promise<{id: string, explanation: string}[]> {
+export async function generateBulkExplanations(questions: BulkExplanationContext[], preferredModel?: string): Promise<{id: string, explanation: string}[]> {
   const prompt = `
 Kamu adalah guru bahasa Inggris ahli.
 Tugas: Buat pembahasan detail untuk kumpulan soal pilihan ganda berikut.
@@ -212,7 +210,11 @@ ${JSON.stringify(questions, null, 2)}
   let raw = ''
   let lastError: any = null
 
-  for (const modelName of MODELS_TO_TRY) {
+  const modelsToTry = preferredModel && preferredModel !== 'auto'
+    ? [preferredModel]
+    : MODELS_TO_TRY
+
+  for (const modelName of modelsToTry) {
     try {
       console.log(`[Gemini Bulk Explanations] Mencoba model: ${modelName}`)
       const model = genAI.getGenerativeModel({

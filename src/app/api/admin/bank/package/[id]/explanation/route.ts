@@ -10,6 +10,14 @@ export async function PUT(
   try {
     await requireAdmin()
     const { id } = await params
+    
+    let model: string | undefined
+    try {
+      const body = await req.json()
+      if (body.model) model = body.model
+    } catch {
+      // Body is optional
+    }
 
     const pkg = await prisma.questionPackage.findUnique({
       where: { id },
@@ -37,7 +45,7 @@ export async function PUT(
     }))
 
     // Call Gemini to generate all explanations at once
-    const generated = await generateBulkExplanations(questionsContext)
+    const generated = await generateBulkExplanations(questionsContext, model)
 
     if (!generated || generated.length === 0) {
       return Response.json({ error: 'Gagal men-generate pembahasan (hasil kosong)' }, { status: 500 })

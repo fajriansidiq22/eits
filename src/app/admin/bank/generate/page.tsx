@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, AlertCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, Sparkles, AlertCircle, Loader2, X } from 'lucide-react'
+import { MODELS_TO_TRY } from '@/lib/gemini-constants'
 
 type Section = 'READING' | 'GRAMMAR'
 
@@ -12,9 +13,11 @@ export default function GeneratePackagePage() {
   const [section, setSection] = useState<Section>('READING')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [aiModel, setAiModel] = useState('auto')
 
-  async function handleGenerate(e: React.FormEvent) {
-    e.preventDefault()
+  async function executeGenerate() {
+    setShowModal(false)
     setError('')
     setLoading(true)
 
@@ -22,7 +25,7 @@ export default function GeneratePackagePage() {
       const res = await fetch('/api/admin/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section }),
+        body: JSON.stringify({ section, model: aiModel }),
       })
       const data = await res.json()
       
@@ -40,6 +43,12 @@ export default function GeneratePackagePage() {
     }
   }
 
+  function handleOpenModal(e: React.FormEvent) {
+    e.preventDefault()
+    if (loading) return
+    setShowModal(true)
+  }
+
   return (
     <div className="page-content">
       <div className="page-header">
@@ -52,7 +61,7 @@ export default function GeneratePackagePage() {
       </div>
 
       <div style={{ maxWidth: 600 }}>
-        <form onSubmit={handleGenerate} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
+        <form onSubmit={handleOpenModal} className="card" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
           <div className="form-group">
             <label className="form-label">Pilih Section</label>
             <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
@@ -114,6 +123,46 @@ export default function GeneratePackagePage() {
           </button>
         </form>
       </div>
+
+      {showModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
+        }}>
+          <div className="card" style={{ maxWidth: 400, width: '100%', position: 'relative' }}>
+            <button 
+              onClick={() => setShowModal(false)}
+              style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+            >
+              <X size={20} />
+            </button>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '16px', color: 'var(--text-primary)' }}>Pilih Model AI</h2>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: 1.5 }}>
+              Pilih model AI yang akan digunakan untuk menghasilkan 30 soal baru.
+            </p>
+            <div className="form-group">
+              <select 
+                className="form-input" 
+                value={aiModel} 
+                onChange={(e) => setAiModel(e.target.value)}
+                style={{ padding: '10px' }}
+              >
+                <option value="auto">Otomatis (Cari yang belum limit)</option>
+                {MODELS_TO_TRY.map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+              <button className="btn btn-ghost" onClick={() => setShowModal(false)}>Batal</button>
+              <button className="btn btn-primary" onClick={executeGenerate}>
+                Konfirmasi & Generate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

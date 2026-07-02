@@ -6,6 +6,7 @@ import { z } from 'zod'
 
 const schema = z.object({
   section: z.enum(['READING', 'GRAMMAR']),
+  model: z.string().optional(),
 })
 
 // Helper to convert index to A, B, C... Z, AA, AB...
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     await requireAdmin()
     const body = await req.json()
-    const { section } = schema.parse(body)
+    const { section, model: aiModel } = schema.parse(body)
 
     // Count existing packages for this section to determine next name
     const count = await prisma.questionPackage.count({
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
       count: 30, // 30 questions per package
       trainingExamples: trainingJson,
       passage,
+      modelName: aiModel,
     })
 
     if (!generated || generated.length === 0) {
