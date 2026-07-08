@@ -255,9 +255,10 @@ ATURAN:
 `.trim()
 
   const TRANSLATE_MODELS = [
-    'gemini-3.5-live-translate', // from user screenshot
-    'gemini-2.5-flash',
-    'gemini-3.1-flash-lite'
+    'gemini-3.5-flash',       // Model terbaru
+    'gemini-3.1-flash-lite',  // Fallback ringan terbaru
+    'gemini-2.5-flash',       // Fallback utama
+    'gemini-2.5-flash-lite',  // Fallback ringan
   ]
 
   let raw = ''
