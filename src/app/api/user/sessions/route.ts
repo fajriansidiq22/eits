@@ -6,15 +6,16 @@ import { Section } from '@prisma/client'
 
 const schema = z.object({
   section: z.enum(['READING', 'GRAMMAR', 'SIMULATION']),
-  mode: z.enum(['PACKAGE', 'RANDOM']),
+  mode: z.enum(['PACKAGE', 'RANDOM', 'CHOOSE']),
   count: z.number().min(5).max(60).optional(),
+  packageId: z.string().optional(), // untuk mode CHOOSE
 })
 
 export async function POST(req: NextRequest) {
   try {
     const auth = await requireUser()
     const body = await req.json()
-    const { section, mode, count } = schema.parse(body)
+    const { section, mode, count, packageId } = schema.parse(body)
 
     // Anti-spam: Batasi user hanya bisa generate 1x setiap menit
     const lastSession = await prisma.practiceSession.findFirst({
@@ -33,7 +34,21 @@ export async function POST(req: NextRequest) {
 
     let selectedQuestionIds: string[] = []
 
-    if (mode === 'PACKAGE') {
+    if (mode === 'CHOOSE') {
+      // Mode: User pilih paket sendiri
+      if (!packageId) {
+        return Response.json({ error: 'packageId wajib diisi pada mode CHOOSE.' }, { status: 400 })
+      }
+      const pkg = await prisma.questionPackage.findFirst({
+        where: { id: packageId, isActive: true },
+        include: { questions: { select: { id: true } } },
+      })
+      if (!pkg) {
+        return Response.json({ error: 'Paket tidak ditemukan atau tidak aktif.' }, { status: 404 })
+      }
+      selectedQuestionIds = pkg.questions.map(q => q.id)
+
+    } else if (mode === 'PACKAGE') {
       // Helper function to pick an uncompleted package for a specific section
       async function pickUncompletedPackage(targetSection: Section) {
         // 1. Dapatkan paket yang pernah dikerjakan user
