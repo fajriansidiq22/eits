@@ -19,9 +19,7 @@ export async function POST(req: NextRequest) {
     // Pastikan semua paket sumber ada dan sesuai section
     const sourcePackages = await prisma.questionPackage.findMany({
       where: { id: { in: packageIds }, section },
-      include: {
-        questions: true,
-      },
+      select: { id: true, _count: { select: { questions: true } } },
     })
 
     if (sourcePackages.length !== packageIds.length) {
@@ -31,42 +29,47 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const allQuestions = sourcePackages.flatMap(pkg => pkg.questions)
+    const totalQuestions = sourcePackages.reduce((sum, p) => sum + p._count.questions, 0)
 
-    if (allQuestions.length === 0) {
+    if (totalQuestions === 0) {
       return Response.json(
         { error: 'Paket yang dipilih tidak memiliki soal.' },
         { status: 400 }
       )
     }
 
-    // Buat paket baru dan salin semua soal ke dalamnya
-    const newPackage = await prisma.questionPackage.create({
-      data: {
-        name,
-        section,
-        isActive: true,
-        questions: {
-          create: allQuestions.map(q => ({
-            section: q.section,
-            sourceType: q.sourceType,
-            passage: q.passage,
-            text: q.text,
-            optionA: q.optionA,
-            optionB: q.optionB,
-            optionC: q.optionC,
-            optionD: q.optionD,
-            correctAnswer: q.correctAnswer,
-            explanation: q.explanation,
-          })),
-        },
-      },
-      include: { _count: { select: { questions: true } } },
+    // Jalankan dalam satu transaksi:
+    // 1. Buat paket baru
+    // 2. Pindahkan (update packageId) semua soal dari paket lama ke paket baru
+    // 3. Hapus paket lama (yang sudah kosong)
+    const newPackage = await prisma.$transaction(async (tx) => {
+      // Buat paket baru
+      const created = await tx.questionPackage.create({
+        data: { name, section, isActive: true },
+      })
+
+      // Pindahkan semua soal dari paket lama ke paket baru
+      await tx.bankQuestion.updateMany({
+        where: { packageId: { in: packageIds } },
+        data: { packageId: created.id },
+      })
+
+      // Hapus paket lama (sudah kosong setelah soal dipindahkan)
+      await tx.questionPackage.deleteMany({
+        where: { id: { in: packageIds } },
+      })
+
+      return created
+    })
+
+    // Hitung total soal di paket baru
+    const questionCount = await prisma.bankQuestion.count({
+      where: { packageId: newPackage.id },
     })
 
     return Response.json(
       {
-        message: `Paket "${name}" berhasil dibuat dengan ${newPackage._count.questions} soal.`,
+        message: `Paket "${name}" berhasil dibuat dengan ${questionCount} soal. ${packageIds.length} paket lama telah dihapus.`,
         packageId: newPackage.id,
       },
       { status: 201 }

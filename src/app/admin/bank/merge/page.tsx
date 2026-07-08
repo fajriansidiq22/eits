@@ -84,7 +84,7 @@ export default function MergePage() {
           <ArrowLeft size={16} /> Kembali
         </Link>
         <h1>Gabungkan Paket Soal</h1>
-        <p>Pilih dua atau lebih paket soal yang ingin digabungkan menjadi satu paket baru. Soal dari paket asal akan <strong>disalin</strong> (paket asal tetap utuh).</p>
+        <p>Pilih dua atau lebih paket soal yang ingin digabungkan menjadi satu paket baru. Soal dari paket asal akan <strong>dipindahkan</strong> dan <strong>paket lama akan dihapus</strong> secara otomatis. Tidak ada duplikat.</p>
       </div>
 
       {/* Filter Section */}
