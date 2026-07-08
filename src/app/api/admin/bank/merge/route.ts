@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     )
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return Response.json({ error: err.errors[0].message }, { status: 400 })
+      return Response.json({ error: err.issues[0].message }, { status: 400 })
     }
     console.error('Merge error:', err)
     return Response.json({ error: 'Gagal menggabungkan paket.' }, { status: 500 })
