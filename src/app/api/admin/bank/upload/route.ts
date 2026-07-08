@@ -31,6 +31,23 @@ const objectSchema = z.object({
   })).min(1)
 })
 
+// Support format TOEFL Grammar (part_a, part_b, dll)
+const toeflGrammarSchema = z.object({
+  title: z.string().optional(),
+  test_type: z.string().optional(),
+  section: z.string().optional(),
+  instruction: z.string().optional(),
+  questions: z.array(z.object({
+    text: z.string(),
+    part_a: z.string(),
+    part_b: z.string(),
+    part_c: z.string(),
+    part_d: z.string(),
+    answer: z.string().optional(),
+    explanation: z.string(),
+  })).min(1)
+})
+
 const schema = z.object({
   section: z.enum(['READING', 'GRAMMAR']),
   data: z.any(), // Di-parse manual di bawah
@@ -56,6 +73,24 @@ export async function POST(req: NextRequest) {
 
     if (Array.isArray(data)) {
       finalData = arraySchema.parse(data)
+    } else if (data.questions && data.questions[0] && 'part_a' in data.questions[0]) {
+      // Format TOEFL Grammar
+      const parsedObj = toeflGrammarSchema.parse(data)
+      finalData = parsedObj.questions.map(q => {
+        let ans = q.answer?.trim().toUpperCase().charAt(0) || 'A'
+        if (!['A', 'B', 'C', 'D'].includes(ans)) {
+          ans = 'A' // Fallback
+        }
+        return {
+          text: q.text,
+          option_a: q.part_a,
+          option_b: q.part_b,
+          option_c: q.part_c,
+          option_d: q.part_d,
+          answer: ans as 'A'|'B'|'C'|'D',
+          explanation: q.explanation
+        }
+      })
     } else {
       const parsedObj = objectSchema.parse(data)
       // Gabungkan passage ke setiap soal
