@@ -1,20 +1,57 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Sparkles, AlertCircle, Loader2, X } from 'lucide-react'
+import { ArrowLeft, Sparkles, AlertCircle, Loader2, X, CheckSquare, Square } from 'lucide-react'
 import { MODELS_TO_TRY } from '@/lib/gemini-constants'
 
 type Section = 'READING' | 'GRAMMAR'
 
+type Package = {
+  id: string
+  name: string
+  section: string
+  sourceType: string
+  _count: { questions: number }
+}
+
 export default function GeneratePackagePage() {
   const router = useRouter()
   const [section, setSection] = useState<Section>('READING')
+  const [packages, setPackages] = useState<Package[]>([])
+  const [selectedPackages, setSelectedPackages] = useState<Set<string>>(new Set())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingPackages, setLoadingPackages] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [aiModel, setAiModel] = useState('auto')
+
+  useEffect(() => {
+    async function loadPackages() {
+      setLoadingPackages(true)
+      try {
+        const res = await fetch(`/api/admin/bank/packages?section=${section}`)
+        if (res.ok) {
+          const data = await res.json()
+          setPackages(data)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        setLoadingPackages(false)
+      }
+      setSelectedPackages(new Set())
+    }
+    loadPackages()
+  }, [section])
+
+  function togglePackage(id: string) {
+    const next = new Set(selectedPackages)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelectedPackages(next)
+  }
 
   async function executeGenerate() {
     setShowModal(false)
@@ -25,7 +62,11 @@ export default function GeneratePackagePage() {
       const res = await fetch('/api/admin/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section, model: aiModel }),
+        body: JSON.stringify({ 
+          section, 
+          model: aiModel,
+          sourcePackageIds: Array.from(selectedPackages)
+        }),
       })
       const data = await res.json()
       
@@ -46,6 +87,10 @@ export default function GeneratePackagePage() {
   function handleOpenModal(e: React.FormEvent) {
     e.preventDefault()
     if (loading) return
+    if (selectedPackages.size === 0) {
+      setError('Pilih minimal 1 paket referensi.')
+      return
+    }
     setShowModal(true)
   }
 
@@ -97,6 +142,42 @@ export default function GeneratePackagePage() {
             </p>
           </div>
 
+          <div className="form-group">
+            <label className="form-label">Pilih Paket Referensi (Bisa lebih dari 1)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '250px', overflowY: 'auto', padding: '4px' }}>
+              {loadingPackages ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', padding: '12px' }}>
+                  <Loader2 size={16} className="spin" /> Memuat daftar paket...
+                </div>
+              ) : packages.length === 0 ? (
+                <div style={{ color: 'var(--text-secondary)', padding: '12px' }}>Belum ada paket untuk section ini.</div>
+              ) : (
+                packages.map(pkg => {
+                  const isSelected = selectedPackages.has(pkg.id)
+                  return (
+                    <div 
+                      key={pkg.id}
+                      onClick={() => togglePackage(pkg.id)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px',
+                        border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                        borderRadius: 'var(--r-md)', cursor: 'pointer',
+                        background: isSelected ? 'var(--primary-light)' : 'var(--surface-2)',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {isSelected ? <CheckSquare size={20} color="var(--primary)" /> : <Square size={20} color="var(--text-muted)" />}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{pkg.name}</div>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{pkg._count.questions} soal</div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
           {error && (
             <div className="alert alert-error">
               <AlertCircle size={18} />
@@ -107,7 +188,7 @@ export default function GeneratePackagePage() {
           <button
             type="submit"
             className="btn btn-primary btn-lg"
-            disabled={loading}
+            disabled={loading || selectedPackages.size === 0}
           >
             {loading ? (
               <>

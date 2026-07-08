@@ -7,6 +7,7 @@ import { z } from 'zod'
 const schema = z.object({
   section: z.enum(['READING', 'GRAMMAR']),
   model: z.string().optional(),
+  sourcePackageIds: z.array(z.string()).min(1, "Pilih minimal 1 paket referensi"),
 })
 
 // Helper to convert index to A, B, C... Z, AA, AB...
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     await requireAdmin()
     const body = await req.json()
-    const { section, model: aiModel } = schema.parse(body)
+    const { section, model: aiModel, sourcePackageIds } = schema.parse(body)
 
     // Get all existing packages for this section to determine the next available name
     // This prevents Unique Constraint errors if a previous package was deleted
@@ -41,15 +42,15 @@ export async function POST(req: NextRequest) {
       packageName = getPackageName(index)
     }
 
-    // Fetch ORIGINAL questions to feed as examples
+    // Fetch questions from the selected reference packages
     const originalQuestions = await prisma.bankQuestion.findMany({
-      where: { section, sourceType: 'ORIGINAL' },
-      take: 8,
+      where: { section, packageId: { in: sourcePackageIds } },
+      take: 12, // Ambil maksimal 12 soal sebagai referensi agar tidak kehabisan token context
     })
 
     if (originalQuestions.length === 0) {
       return Response.json(
-        { error: `Belum ada Soal Asli untuk section ${section}. Upload soal asli terlebih dahulu sebagai referensi AI.` },
+        { error: `Paket referensi yang dipilih tidak memiliki soal.` },
         { status: 400 }
       )
     }
