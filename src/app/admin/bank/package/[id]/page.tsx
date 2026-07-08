@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Merge } from 'lucide-react'
 import { notFound } from 'next/navigation'
 import UpdateExplanationBtn from './UpdateExplanationBtn'
 import UpdatePackageExplanationsBtn from './UpdatePackageExplanationsBtn'
@@ -33,7 +33,10 @@ export default async function PackageDetailPage({
           <h1>Paket {pkg.name}</h1>
           <p>Section: <span className="badge badge-blue">{pkg.section}</span> | Total: {pkg.questions.length} Soal</p>
         </div>
-        <div style={{ marginTop: 'auto', paddingBottom: '8px' }}>
+        <div style={{ display: 'flex', gap: '12px', marginTop: 'auto', paddingBottom: '8px', flexWrap: 'wrap' }}>
+          <Link href="/admin/bank/merge" className="btn btn-secondary">
+            <Merge size={16} /> Gabungkan Paket
+          </Link>
           <UpdatePackageExplanationsBtn packageId={pkg.id} totalQuestions={pkg.questions.length} />
         </div>
       </div>
