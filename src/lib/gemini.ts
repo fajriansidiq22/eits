@@ -59,12 +59,15 @@ export async function generateQuestions(
   }
 
   try {
-    const parsed = JSON.parse(raw)
+    // Bersihkan markdown block jika ada
+    const cleanRaw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+    const parsed = JSON.parse(cleanRaw)
     const arr: GeneratedQuestionRaw[] = Array.isArray(parsed)
       ? parsed
       : parsed.questions ?? []
     return arr.slice(0, config.count)
-  } catch {
+  } catch (err) {
+    console.error('[Gemini] Gagal parse JSON. Raw output:', raw)
     throw new Error('Gagal memparse hasil dari AI. Coba lagi.')
   }
 }
@@ -238,9 +241,12 @@ ${JSON.stringify(questions, null, 2)}
   }
 
   try {
-    const parsed = JSON.parse(raw)
+    // Bersihkan markdown block jika ada
+    const cleanRaw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
+    const parsed = JSON.parse(cleanRaw)
     return Array.isArray(parsed) ? parsed : []
-  } catch {
+  } catch (err) {
+    console.error('[Gemini Bulk Explanations] Gagal parse JSON. Raw output:', raw)
     throw new Error('Gagal memparse hasil dari AI. Coba lagi.')
   }
 }
