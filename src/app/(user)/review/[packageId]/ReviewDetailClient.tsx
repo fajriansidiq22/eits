@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Glasses, CheckCircle2, Loader2,
-  X, BookOpen, Languages
+  X, BookOpen, Languages, GripHorizontal
 } from 'lucide-react'
 
 type Question = {
@@ -48,6 +48,8 @@ export default function ReviewDetailClient() {
   const [popup, setPopup] = useState<{
     top: number; left: number; text: string; translation: string; loading: boolean
   } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
 
   // Fetch package detail
   useEffect(() => {
@@ -60,6 +62,29 @@ export default function ReviewDetailClient() {
       })
       .catch(() => { setError('Gagal memuat data paket.'); setLoading(false) })
   }, [params.packageId])
+
+  // Dragging logic
+  useEffect(() => {
+    if (!isDragging) return
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault()
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      setPopup(prev => prev ? { ...prev, left: clientX - dragOffset.x, top: clientY - dragOffset.y } : prev)
+    }
+    const handleUp = () => setIsDragging(false)
+
+    document.addEventListener('mousemove', handleMove, { passive: false })
+    document.addEventListener('mouseup', handleUp)
+    document.addEventListener('touchmove', handleMove, { passive: false })
+    document.addEventListener('touchend', handleUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+      document.removeEventListener('touchmove', handleMove)
+      document.removeEventListener('touchend', handleUp)
+    }
+  }, [isDragging, dragOffset])
 
   // Translate mode: seleksi teks → popup terjemahan
   useEffect(() => {
@@ -349,9 +374,23 @@ export default function ReviewDetailClient() {
             animation: 'fadeIn 0.15s ease',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <div 
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, cursor: isDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
+            onMouseDown={(e) => {
+              if (popup) {
+                setIsDragging(true)
+                setDragOffset({ x: e.clientX - popup.left, y: e.clientY - popup.top })
+              }
+            }}
+            onTouchStart={(e) => {
+              if (popup) {
+                setIsDragging(true)
+                setDragOffset({ x: e.touches[0].clientX - popup.left, y: e.touches[0].clientY - popup.top })
+              }
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-              <Languages size={14} />
+              <GripHorizontal size={14} />
               Terjemahan (ID)
             </div>
             <button

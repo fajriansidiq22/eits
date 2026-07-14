@@ -44,6 +44,8 @@ export default function PracticeClient({ session }: { session: Session }) {
   
   const [translateMode, setTranslateMode] = useState(false)
   const [popup, setPopup] = useState<{ top: number, left: number, text: string, translation: string, loading: boolean } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const isRoutingAway = useRef(false)
 
   // Intercept browser back button & tab close
@@ -77,6 +79,29 @@ export default function PracticeClient({ session }: { session: Session }) {
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
   }, [session.id])
+
+  // Dragging logic
+  useEffect(() => {
+    if (!isDragging) return
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      e.preventDefault()
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX
+      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY
+      setPopup(prev => prev ? { ...prev, left: clientX - dragOffset.x, top: clientY - dragOffset.y } : prev)
+    }
+    const handleUp = () => setIsDragging(false)
+
+    document.addEventListener('mousemove', handleMove, { passive: false })
+    document.addEventListener('mouseup', handleUp)
+    document.addEventListener('touchmove', handleMove, { passive: false })
+    document.addEventListener('touchend', handleUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMove)
+      document.removeEventListener('mouseup', handleUp)
+      document.removeEventListener('touchmove', handleMove)
+      document.removeEventListener('touchend', handleUp)
+    }
+  }, [isDragging, dragOffset])
 
   useEffect(() => {
     if (!translateMode) {
@@ -414,8 +439,22 @@ export default function PracticeClient({ session }: { session: Session }) {
           zIndex: 9999, width: 'max-content', maxWidth: 'min(500px, 90vw)', maxHeight: 'min(400px, 50vh)',
           display: 'flex', flexDirection: 'column', fontSize: '0.875rem'
         }}>
-          <div style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Glasses size={14} /> Terjemahan AI
+          <div 
+            style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px', cursor: isDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
+            onMouseDown={(e) => {
+              if (popup) {
+                setIsDragging(true)
+                setDragOffset({ x: e.clientX - popup.left, y: e.clientY - popup.top })
+              }
+            }}
+            onTouchStart={(e) => {
+              if (popup) {
+                setIsDragging(true)
+                setDragOffset({ x: e.touches[0].clientX - popup.left, y: e.touches[0].clientY - popup.top })
+              }
+            }}
+          >
+            <Glasses size={14} /> Terjemahan AI (Geser)
           </div>
           <div style={{ color: 'var(--text-secondary)', marginBottom: '8px', fontSize: '0.8rem', borderBottom: '1px solid var(--border)', paddingBottom: '6px', fontStyle: 'italic', maxHeight: '80px', overflowY: 'auto' }}>
             "{popup.text.length > 50 ? popup.text.substring(0, 50) + '...' : popup.text}"
