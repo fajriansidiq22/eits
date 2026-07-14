@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
-import { Plus, Sparkles, Eye, List, Merge } from 'lucide-react'
+import { Plus, Sparkles, Eye, List, Merge, RefreshCw } from 'lucide-react'
 import DeletePackageButton from './DeletePackageButton'
 import TogglePackageButton from './TogglePackageButton'
 import RenamePackageButton from './RenamePackageButton'
@@ -23,6 +23,10 @@ export default async function BankPage() {
           <p>Kelola koleksi soal asli dan paket soal yang digenerate oleh AI.</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-3)', flexWrap: 'wrap' }}>
+          <Link href="/admin/bank/bulk-explanation" className="btn btn-secondary">
+            <RefreshCw size={18} />
+            Bulk Update Pembahasan
+          </Link>
           <Link href="/admin/bank/upload" className="btn btn-secondary">
             <Plus size={18} />
             Upload Soal Asli
