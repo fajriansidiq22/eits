@@ -82,7 +82,7 @@ export default function ReviewDetailClient() {
       }
 
       const text = selection.toString().trim()
-      if (text.length === 0 || text.length > 500) return
+      if (text.length === 0) return
 
       // Debounce: tunggu sampai user berhenti drag selama 400ms
       timeoutId = setTimeout(async () => {

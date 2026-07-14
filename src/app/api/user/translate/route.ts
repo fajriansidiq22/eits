@@ -11,9 +11,6 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Teks tidak valid' }, { status: 400 })
     }
 
-    if (text.length > 2000) {
-      return Response.json({ error: 'Teks terlalu panjang (maksimal 2000 karakter)' }, { status: 400 })
-    }
 
     const translated = await translateText(text)
 

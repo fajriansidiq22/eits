@@ -98,7 +98,7 @@ export default function PracticeClient({ session }: { session: Session }) {
       }
 
       const text = selection.toString().trim()
-      if (text.length === 0 || text.length > 500) return
+      if (text.length === 0) return
 
       // Debounce: wait until user stops dragging for 400ms
       timeoutId = setTimeout(async () => {
