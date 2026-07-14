@@ -71,27 +71,34 @@ export default function ReviewDetailClient() {
     let timeoutId: NodeJS.Timeout
     let lastText = ''
 
-    const handleMouseUp = async () => {
+    const handleSelectionChange = () => {
       clearTimeout(timeoutId)
 
-      // Beri waktu browser selesaikan seleksi
-      timeoutId = setTimeout(async () => {
-        const selection = window.getSelection()
-        if (!selection || selection.isCollapsed) return
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed) {
+        setPopup(null)
+        lastText = ''
+        return
+      }
 
-        const text = selection.toString().trim()
-        if (!text || text.length > 500 || text === lastText) return
+      const text = selection.toString().trim()
+      if (text.length === 0 || text.length > 500) return
+
+      // Debounce: tunggu sampai user berhenti drag selama 400ms
+      timeoutId = setTimeout(async () => {
+        if (text === lastText) return
         lastText = text
 
         const range = selection.getRangeAt(0)
         const rect = range.getBoundingClientRect()
 
-        // Gunakan fixed positioning berdasarkan viewport
-        const popupWidth = 320
-        const left = Math.min(Math.max(10, rect.left), window.innerWidth - popupWidth - 10)
-        const top = rect.bottom + 10
-
-        setPopup({ top, left, text, translation: '', loading: true })
+        setPopup({
+          top: Math.min(rect.bottom + 10, window.innerHeight - 150),
+          left: Math.min(Math.max(10, rect.left), window.innerWidth - 320),
+          text,
+          translation: '',
+          loading: true,
+        })
 
         try {
           const res = await fetch('/api/user/translate', {
@@ -100,35 +107,35 @@ export default function ReviewDetailClient() {
             body: JSON.stringify({ text }),
           })
           const data = await res.json()
-          setPopup(prev =>
-            prev && prev.text === text
-              ? { ...prev, translation: data.success ? data.translated : '⚠️ ' + data.error, loading: false }
-              : prev
-          )
+          if (data.success) {
+            setPopup(prev => prev && prev.text === text ? { ...prev, translation: data.translated, loading: false } : prev)
+          } else {
+            setPopup(prev => prev && prev.text === text ? { ...prev, translation: 'Error: ' + data.error, loading: false } : prev)
+          }
         } catch {
-          setPopup(prev =>
-            prev && prev.text === text
-              ? { ...prev, translation: 'Gagal terhubung ke server.', loading: false }
-              : prev
-          )
+          setPopup(prev => prev && prev.text === text ? { ...prev, translation: 'Gagal terhubung', loading: false } : prev)
         }
-      }, 300)
+      }, 400)
     }
 
-    const handleMouseDown = (e: MouseEvent) => {
+    const handlePointerDown = (e: Event) => {
       const popupEl = document.getElementById('translate-popup')
       if (popupEl && popupEl.contains(e.target as Node)) return
-      clearTimeout(timeoutId)
+
+      const selection = window.getSelection()
+      if (selection) selection.removeAllRanges()
       setPopup(null)
       lastText = ''
     }
 
-    document.addEventListener('mouseup', handleMouseUp)
-    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('selectionchange', handleSelectionChange)
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('touchstart', handlePointerDown)
     return () => {
       clearTimeout(timeoutId)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('selectionchange', handleSelectionChange)
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('touchstart', handlePointerDown)
     }
   }, [translateMode])
 
