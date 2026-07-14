@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Plus, Sparkles, Eye, List, Merge } from 'lucide-react'
 import DeletePackageButton from './DeletePackageButton'
 import TogglePackageButton from './TogglePackageButton'
+import RenamePackageButton from './RenamePackageButton'
 
 export default async function BankPage() {
   const packages = await prisma.questionPackage.findMany({
@@ -106,10 +107,11 @@ export default async function BankPage() {
                       hour: '2-digit', minute: '2-digit'
                     })}
                   </td>
-                  <td style={{ display: 'flex', gap: '8px' }}>
+                  <td style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <Link href={`/admin/bank/package/${pkg.id}`} className="btn" style={{ padding: '6px 12px', fontSize: '0.8125rem', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-primary)' }}>
                       <List size={15} /> Detail
                     </Link>
+                    <RenamePackageButton id={pkg.id} name={pkg.name} />
                     <TogglePackageButton id={pkg.id} isActive={pkg.isActive} name={pkg.name} />
                     <DeletePackageButton id={pkg.id} name={pkg.name} />
                   </td>
