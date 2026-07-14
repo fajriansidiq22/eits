@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import {
   ArrowLeft, Glasses, CheckCircle2, Loader2,
-  ChevronDown, ChevronUp, X, BookOpen, Languages
+  X, BookOpen, Languages
 } from 'lucide-react'
 
 type Question = {
@@ -49,9 +49,6 @@ export default function ReviewDetailClient() {
     top: number; left: number; text: string; translation: string; loading: boolean
   } | null>(null)
 
-  // Expanded explanations state
-  const [expandedExpl, setExpandedExpl] = useState<Set<string>>(new Set())
-
   // Fetch package detail
   useEffect(() => {
     fetch(`/api/user/review/${params.packageId}`)
@@ -64,7 +61,7 @@ export default function ReviewDetailClient() {
       .catch(() => { setError('Gagal memuat data paket.'); setLoading(false) })
   }, [params.packageId])
 
-  // Translate mode: text selection → popup
+  // Translate mode: seleksi teks → popup terjemahan
   useEffect(() => {
     if (!translateMode) {
       setPopup(null)
@@ -74,25 +71,28 @@ export default function ReviewDetailClient() {
     let timeoutId: NodeJS.Timeout
     let lastText = ''
 
-    const handleSelectionChange = () => {
+    const handleMouseUp = async () => {
       clearTimeout(timeoutId)
-      const selection = window.getSelection()
-      if (!selection || selection.isCollapsed) {
-        setPopup(null); lastText = ''; return
-      }
-      const text = selection.toString().trim()
-      if (!text || text.length > 500) return
 
+      // Beri waktu browser selesaikan seleksi
       timeoutId = setTimeout(async () => {
-        if (text === lastText) return
+        const selection = window.getSelection()
+        if (!selection || selection.isCollapsed) return
+
+        const text = selection.toString().trim()
+        if (!text || text.length > 500 || text === lastText) return
         lastText = text
+
         const range = selection.getRangeAt(0)
         const rect = range.getBoundingClientRect()
-        setPopup({
-          top: Math.min(rect.bottom + window.scrollY + 10, document.body.scrollHeight - 200),
-          left: Math.min(Math.max(10, rect.left + window.scrollX), window.innerWidth - 340),
-          text, translation: '', loading: true,
-        })
+
+        // Gunakan fixed positioning berdasarkan viewport
+        const popupWidth = 320
+        const left = Math.min(Math.max(10, rect.left), window.innerWidth - popupWidth - 10)
+        const top = rect.bottom + 10
+
+        setPopup({ top, left, text, translation: '', loading: true })
+
         try {
           const res = await fetch('/api/user/translate', {
             method: 'POST',
@@ -106,45 +106,31 @@ export default function ReviewDetailClient() {
               : prev
           )
         } catch {
-          setPopup(prev => prev && prev.text === text ? { ...prev, translation: 'Gagal terhubung.', loading: false } : prev)
+          setPopup(prev =>
+            prev && prev.text === text
+              ? { ...prev, translation: 'Gagal terhubung ke server.', loading: false }
+              : prev
+          )
         }
-      }, 400)
+      }, 300)
     }
 
-    const handlePointerDown = (e: MouseEvent | TouchEvent) => {
+    const handleMouseDown = (e: MouseEvent) => {
       const popupEl = document.getElementById('translate-popup')
       if (popupEl && popupEl.contains(e.target as Node)) return
-      window.getSelection()?.removeAllRanges()
-      setPopup(null); lastText = ''
+      clearTimeout(timeoutId)
+      setPopup(null)
+      lastText = ''
     }
 
-    document.addEventListener('selectionchange', handleSelectionChange)
-    document.addEventListener('mousedown', handlePointerDown as EventListener)
-    document.addEventListener('touchstart', handlePointerDown as EventListener)
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mousedown', handleMouseDown)
     return () => {
       clearTimeout(timeoutId)
-      document.removeEventListener('selectionchange', handleSelectionChange)
-      document.removeEventListener('mousedown', handlePointerDown as EventListener)
-      document.removeEventListener('touchstart', handlePointerDown as EventListener)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousedown', handleMouseDown)
     }
   }, [translateMode])
-
-  function toggleExpl(id: string) {
-    setExpandedExpl(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
-
-  function expandAll() {
-    if (!pkg) return
-    setExpandedExpl(new Set(pkg.questions.map(q => q.id)))
-  }
-
-  function collapseAll() {
-    setExpandedExpl(new Set())
-  }
 
   if (loading) return (
     <div className="page-content" style={{ textAlign: 'center', paddingTop: 80 }}>
@@ -164,7 +150,6 @@ export default function ReviewDetailClient() {
   )
 
   const sectionColor = SECTION_COLOR[pkg.section] ?? 'var(--primary)'
-  const allExpanded = pkg.questions.every(q => expandedExpl.has(q.id))
 
   return (
     <div className="page-content">
@@ -174,8 +159,8 @@ export default function ReviewDetailClient() {
           <button className="btn btn-ghost btn-sm" onClick={() => router.back()} style={{ marginBottom: 12 }}>
             <ArrowLeft size={16} /> Kembali
           </button>
-          <h1 style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <BookOpen size={26} color={sectionColor} />
+          <h1 style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+            <BookOpen size={26} color={sectionColor} style={{ flexShrink: 0, marginTop: 4 }} />
             {pkg.name}
           </h1>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 6 }}>
@@ -186,37 +171,24 @@ export default function ReviewDetailClient() {
           </div>
         </div>
 
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* Expand / Collapse all */}
-          <button
-            className="btn btn-secondary"
-            onClick={allExpanded ? collapseAll : expandAll}
-            style={{ padding: '8px 14px', fontSize: '0.8125rem' }}
-          >
-            {allExpanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-            {allExpanded ? 'Tutup Semua' : 'Buka Semua'} Pembahasan
-          </button>
-
-          {/* Translate Toggle */}
-          <button
-            onClick={() => setTranslateMode(m => !m)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 16px', borderRadius: 'var(--r-lg)',
-              border: `2px solid ${translateMode ? sectionColor : 'var(--border)'}`,
-              background: translateMode ? `color-mix(in srgb, ${sectionColor} 12%, transparent)` : 'var(--surface)',
-              color: translateMode ? sectionColor : 'var(--text-secondary)',
-              fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              boxShadow: translateMode ? `0 2px 0 ${sectionColor}` : '0 2px 0 var(--border)',
-            }}
-            title={translateMode ? 'Matikan mode terjemahan' : 'Aktifkan mode terjemahan (blok teks untuk menerjemahkan)'}
-          >
-            <Glasses size={18} />
-            {translateMode ? '🟢 Terjemahan Aktif' : 'Mode Terjemahan'}
-          </button>
-        </div>
+        {/* Translate Toggle */}
+        <button
+          onClick={() => setTranslateMode(m => !m)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 16px', borderRadius: 'var(--r-lg)',
+            border: `2px solid ${translateMode ? sectionColor : 'var(--border)'}`,
+            background: translateMode ? `color-mix(in srgb, ${sectionColor} 12%, transparent)` : 'var(--surface)',
+            color: translateMode ? sectionColor : 'var(--text-secondary)',
+            fontWeight: 700, fontSize: '0.875rem', cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: translateMode ? `0 2px 0 ${sectionColor}` : '0 2px 0 var(--border)',
+          }}
+          title={translateMode ? 'Matikan mode terjemahan' : 'Aktifkan mode terjemahan — blok teks untuk menerjemahkan'}
+        >
+          <Glasses size={18} />
+          {translateMode ? '🟢 Terjemahan Aktif' : 'Mode Terjemahan'}
+        </button>
       </div>
 
       {/* Translate hint banner */}
@@ -230,7 +202,7 @@ export default function ReviewDetailClient() {
           animation: 'fadeIn 0.2s ease',
         }}>
           <Languages size={18} />
-          <span>Mode Terjemahan Aktif — Blok / pilih teks mana saja untuk mendapatkan terjemahan bahasa Indonesia.</span>
+          <span>Mode Terjemahan Aktif — Blok / pilih teks untuk mendapatkan terjemahan Bahasa Indonesia secara otomatis.</span>
         </div>
       )}
 
@@ -238,7 +210,6 @@ export default function ReviewDetailClient() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
         {pkg.questions.map((q, i) => {
           const hasPassage = !!q.passage
-          const isExplOpen = expandedExpl.has(q.id)
 
           const optionList = (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)' }}>
@@ -254,7 +225,7 @@ export default function ReviewDetailClient() {
                       border: `1px solid ${isCorrect ? 'var(--success)' : 'var(--border)'}`,
                       borderRadius: 'var(--r-md)', fontSize: '0.875rem',
                       display: 'flex', alignItems: 'center', gap: 8,
-                      transition: 'all 0.15s',
+                      userSelect: 'text',
                     }}
                   >
                     <span style={{
@@ -287,39 +258,27 @@ export default function ReviewDetailClient() {
                 }}>
                   {i + 1}
                 </div>
-                <p style={{ fontWeight: 600, fontSize: '1rem', lineHeight: 1.65, paddingTop: 4, margin: 0, userSelect: translateMode ? 'text' : 'auto' }}>
+                <p style={{ fontWeight: 600, fontSize: '1rem', lineHeight: 1.65, paddingTop: 4, margin: 0, userSelect: 'text' }}>
                   {q.text}
                 </p>
               </div>
 
               {optionList}
 
-              {/* Pembahasan toggle */}
-              <div style={{ borderRadius: 'var(--r-md)', overflow: 'hidden', border: '1px solid var(--border)' }}>
-                <button
-                  onClick={() => toggleExpl(q.id)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 14px', background: isExplOpen ? 'var(--surface-2)' : 'var(--surface)',
-                    border: 'none', cursor: 'pointer', fontSize: '0.875rem',
-                    fontWeight: 700, color: 'var(--text-secondary)', gap: 8,
-                    transition: 'background 0.15s',
-                  }}
-                >
-                  <span>💡 Lihat Pembahasan</span>
-                  {isExplOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-                {isExplOpen && (
-                  <div style={{
-                    padding: '12px 16px', background: 'var(--surface-2)',
-                    fontSize: '0.875rem', lineHeight: 1.7,
-                    color: 'var(--text-primary)', borderTop: '1px solid var(--border)',
-                    animation: 'fadeIn 0.15s ease',
-                    userSelect: translateMode ? 'text' : 'auto',
-                  }}>
-                    {q.explanation}
-                  </div>
-                )}
+              {/* Pembahasan — langsung tampil, tidak di-minimize */}
+              <div style={{
+                padding: '12px 16px',
+                background: 'var(--surface-2)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--r-md)',
+                fontSize: '0.875rem', lineHeight: 1.7,
+                color: 'var(--text-primary)',
+                userSelect: 'text',
+              }}>
+                <div style={{ fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                  💡 Pembahasan
+                </div>
+                <div>{q.explanation}</div>
               </div>
             </div>
           )
@@ -339,7 +298,7 @@ export default function ReviewDetailClient() {
                     <p style={{
                       lineHeight: 1.85, fontSize: '0.9rem', margin: 0,
                       whiteSpace: 'pre-wrap', textAlign: 'justify',
-                      userSelect: translateMode ? 'text' : 'auto',
+                      userSelect: 'text',
                     }}>
                       {q.passage}
                     </p>
@@ -352,12 +311,12 @@ export default function ReviewDetailClient() {
         })}
       </div>
 
-      {/* Translate popup */}
+      {/* Translate popup — fixed position agar tidak terpotong scroll */}
       {popup && (
         <div
           id="translate-popup"
           style={{
-            position: 'absolute',
+            position: 'fixed',
             top: popup.top,
             left: popup.left,
             zIndex: 9999,
@@ -382,7 +341,7 @@ export default function ReviewDetailClient() {
               <X size={14} />
             </button>
           </div>
-          {/* Original */}
+          {/* Teks asli */}
           <div style={{
             fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8,
             padding: '6px 10px', background: 'var(--surface-2)',
@@ -390,7 +349,7 @@ export default function ReviewDetailClient() {
           }}>
             "{popup.text}"
           </div>
-          {/* Translation */}
+          {/* Hasil terjemahan */}
           {popup.loading ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-muted)', fontSize: '0.875rem' }}>
               <Loader2 size={14} style={{ animation: 'spin 0.7s linear infinite' }} />

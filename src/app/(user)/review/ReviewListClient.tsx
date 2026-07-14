@@ -177,7 +177,7 @@ export default function ReviewListClient() {
                         <Package size={20} color={meta.color} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)', wordBreak: 'break-word' }}>
                           {pkg.name}
                         </div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: 2 }}>
