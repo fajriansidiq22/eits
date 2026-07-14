@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createBrowserClient } from '@supabase/ssr'
-import { LayoutDashboard, History, LogOut, BookOpen, Menu } from 'lucide-react'
+import { LayoutDashboard, History, LogOut, BookOpen, Menu, GraduationCap } from 'lucide-react'
 import { useIdleTimeout } from '@/hooks/useIdleTimeout'
 
 const supabase = createBrowserClient(
@@ -14,6 +14,7 @@ const supabase = createBrowserClient(
 
 const navItems = [
   { href: '/dashboard', label: 'Latihan',  icon: LayoutDashboard },
+  { href: '/review',    label: 'Review',   icon: GraduationCap   },
   { href: '/history',   label: 'Riwayat',  icon: History },
 ]
 
@@ -69,7 +70,7 @@ export default function UserSidebar({ userName }: { userName: string }) {
         <div className="sidebar-section-label">Menu</div>
         {navItems.map(item => {
           const Icon = item.icon
-          const isActive = pathname === item.href
+          const isActive = item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href)
           return (
             <Link
               key={item.href}
