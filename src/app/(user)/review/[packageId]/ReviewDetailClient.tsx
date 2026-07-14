@@ -92,9 +92,18 @@ export default function ReviewDetailClient() {
         const range = selection.getRangeAt(0)
         const rect = range.getBoundingClientRect()
 
+        const popupWidth = Math.min(500, window.innerWidth - 32)
+        const horizontalCenter = rect.left + rect.width / 2
+        const left = Math.min(Math.max(16, horizontalCenter - (popupWidth / 2)), window.innerWidth - popupWidth - 16)
+        
+        let top = rect.bottom + 10
+        if (top > window.innerHeight - 200) {
+          top = Math.max(16, window.innerHeight - 350)
+        }
+
         setPopup({
-          top: Math.min(rect.bottom + 10, window.innerHeight - 150),
-          left: Math.min(Math.max(10, rect.left), window.innerWidth - 320),
+          top,
+          left,
           text,
           translation: '',
           loading: true,
@@ -327,7 +336,11 @@ export default function ReviewDetailClient() {
             top: popup.top,
             left: popup.left,
             zIndex: 9999,
-            width: 320,
+            width: 'max-content',
+            maxWidth: 'min(500px, 90vw)',
+            maxHeight: 'min(400px, 50vh)',
+            display: 'flex',
+            flexDirection: 'column',
             background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 'var(--r-lg)',
@@ -353,6 +366,7 @@ export default function ReviewDetailClient() {
             fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 8,
             padding: '6px 10px', background: 'var(--surface-2)',
             borderRadius: 'var(--r-sm)', fontStyle: 'italic', lineHeight: 1.5,
+            maxHeight: '80px', overflowY: 'auto',
           }}>
             "{popup.text}"
           </div>
@@ -363,7 +377,7 @@ export default function ReviewDetailClient() {
               Menerjemahkan...
             </div>
           ) : (
-            <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.55 }}>
+            <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.55, overflowY: 'auto', paddingRight: 4 }}>
               {popup.translation}
             </div>
           )}

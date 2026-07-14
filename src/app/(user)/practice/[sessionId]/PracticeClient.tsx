@@ -108,9 +108,19 @@ export default function PracticeClient({ session }: { session: Session }) {
         const range = selection.getRangeAt(0)
         const rect = range.getBoundingClientRect()
 
+        const popupWidth = Math.min(500, window.innerWidth - 32)
+        const horizontalCenter = rect.left + rect.width / 2
+        const left = Math.min(Math.max(16, horizontalCenter - (popupWidth / 2)), window.innerWidth - popupWidth - 16)
+        
+        let top = rect.bottom + 10
+        // Jika meletakkan di bawah seleksi menembus viewport, float ke atas
+        if (top > window.innerHeight - 200) {
+          top = Math.max(16, window.innerHeight - 350)
+        }
+
         setPopup({
-          top: Math.min(rect.bottom + 10, window.innerHeight - 150),
-          left: Math.min(Math.max(10, rect.left), window.innerWidth - 320),
+          top,
+          left,
           text,
           translation: '',
           loading: true
@@ -401,15 +411,16 @@ export default function PracticeClient({ session }: { session: Session }) {
           position: 'fixed', top: popup.top, left: popup.left,
           background: 'white', border: '1px solid var(--border)', borderRadius: 'var(--r-md)',
           padding: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-          zIndex: 9999, width: '300px', fontSize: '0.875rem'
+          zIndex: 9999, width: 'max-content', maxWidth: 'min(500px, 90vw)', maxHeight: 'min(400px, 50vh)',
+          display: 'flex', flexDirection: 'column', fontSize: '0.875rem'
         }}>
           <div style={{ fontWeight: 600, color: 'var(--primary)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Glasses size={14} /> Terjemahan AI
           </div>
-          <div style={{ color: 'var(--text-secondary)', marginBottom: '8px', fontSize: '0.8rem', borderBottom: '1px solid var(--border)', paddingBottom: '6px', fontStyle: 'italic' }}>
+          <div style={{ color: 'var(--text-secondary)', marginBottom: '8px', fontSize: '0.8rem', borderBottom: '1px solid var(--border)', paddingBottom: '6px', fontStyle: 'italic', maxHeight: '80px', overflowY: 'auto' }}>
             "{popup.text.length > 50 ? popup.text.substring(0, 50) + '...' : popup.text}"
           </div>
-          <div style={{ color: 'var(--text-primary)', lineHeight: 1.6 }}>
+          <div style={{ color: 'var(--text-primary)', lineHeight: 1.6, overflowY: 'auto', paddingRight: 4 }}>
             {popup.loading ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
                 <Loader2 size={14} className="spin" style={{ animation: 'spin 1s linear infinite' }} /> Menerjemahkan...
